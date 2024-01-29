@@ -1,13 +1,16 @@
 /*================================================================
  React Impossible State
+    Technically, all states related to the asynchronous data 
+  belong together, which doesn't only include the 
+      1. stories as actual data
+      2. but also their loading
+      3. and error states. 
+  That's where one reducer and React's useReducer Hook come 
+  into play to manage domain related states. 
+
      The impossible state happens when an error occurs for the 
- asynchronous data. The state for the error is set, but the 
- state for the loading indicator isn't revoked. In the UI, 
- this would lead to an infinite loading indicator and an error
- message, though it may be better to show the error message only 
- and hide the loading indicator. Impossible states are not easy 
- to spot, which makes them infamous for causing bugs in the UI. 
- You could go on and try yourself to fix this bug.
+ asynchronous data. The state for the error is set, but the state 
+ for the loading indicator isn't revoked.
 
  Fortunately, we can improve our chances of not dealing with such 
  bugs by moving states that belong together from multiple useState 
@@ -25,6 +28,12 @@
       const [isError, setIsError] = React.useState(false);
       ...
     };
+ 
+  TO DO:
+     First create a reducer function outside of the component.
+  A reducer function always receives a state and an action. 
+  Based on these two arguments, a reducer always returns 
+  a new state.
 
   Review what is useState?
       - https://www.robinwieruch.de/react-usestate-hook/
@@ -63,6 +72,7 @@ const initialStories = [
   },
 ];
 
+//Function that fetch data
 const getAsyncStories = () =>
   new Promise((resolve) =>
     setTimeout(
@@ -71,35 +81,92 @@ const getAsyncStories = () =>
     )
   );
 
+  /*
+    Again the first thing to do when using React.useReducer hook
+  is to define a reducer function outside of the component.
+  A reducer function always receives a state and an action. 
+  Based on these two arguments, returns a new state.
+
+  In this section We need to change the storiesReducer() function
+     const storiesReducer = (state, action) => {
+     if (action.type === 'SET_STORIES') {
+       return action.payload;
+     } else {
+      throw new Error();
+     }};
+
+   We changed two things from the above original reducer function. 
+   1. First, we introduced new types when we called the dispatch 
+      function from the outside. 
+      Therefore we need to add the following new cases for state transitions.
+         'STORIES_FETCH_INIT' 
+         'STORIES_FETCH_SUCCESS'
+         'STORIES_FETCH_FAILURE'
+         'REMOVE_STORY'
+         throw new Error();
+
+   2. Second, we changed the state structure from an array to 
+      a complex object. Therefore we need to take the new complex 
+      object into account as incoming state and returned state:
+
+   3.For every state transition, we return a new state object 
+     which contains all the key/value pairs from the current 
+     state object (via JavaScript's spread operator ...state) and 
+     the new over writing properties 
+
+     
+
+  */
 const storiesReducer = (state, action) => {
+  
   switch (action.type) {
-    case 'STORIES_FETCH_INIT':
+    case 'STORIES_FETCH_INIT': //distinct type and payload 
+                               //received by dispatchStories 
+                               //dispatch function
+                               //so we need to add it here
       return {
-        ...state,
+        ...state, //return new state object with KV pairs 
+                  //via spread operator from current state object
         isLoading: true,
         isError: false,
       };
-    case 'STORIES_FETCH_SUCCESS':
+    case 'STORIES_FETCH_SUCCESS': //distinct type and payload 
+                                  //received by dispatchStories 
+                                  //dispatch function
+                                  //so we need to add it here
       return {
         ...state,
         isLoading: false,
         isError: false,
         data: action.payload,
       };
-    case 'STORIES_FETCH_FAILURE':
+    case 'STORIES_FETCH_FAILURE': //another distinct type and payload 
+                                  //received by dispatchStories 
+                                  //dispatch function 
+                                  //so we need to add it here
       return {
         ...state,
         isLoading: false,
         isError: true,
       };
-    case 'REMOVE_STORY':
+    case 'REMOVE_STORY':  //another distinct type and payload 
+                          //received by dispatchStories 
+                          //dispatch function
+                          //so we need to add it here
+                     //Observe how the REMOVE_STORY action 
+                     //changed as well. It operates on the 
+                     //state.data, and no longer just on the
+                     // plain "state".
       return {
-        ...state,
-        data: state.data.filter(
+        ...state,        
+        data: state.data.filter( //now operate on state.data not just "state"
           (story) => action.payload.objectID !== story.objectID
         ),
       };
-    default:
+    default:              //another distinct type and payload
+                          //received by dispatchStories 
+                          //dispatch function
+                          //so we need to add it here
       throw new Error();
   }
 };
@@ -121,23 +188,58 @@ const App = () => {
     'search',
     'React'
   );
+ 
+ /* Take the following hooks: And merge them into one useReducer 
+ hook for a unified state. Because echnically, all states related 
+ to the asynchronous data belong together, which doesn't only 
+ include the stories as actual data, but also their loading and 
+ error states.
 
-  const [stories, dispatchStories] = React.useReducer(
+    That's where one reducer and React's useReducer Hook come 
+ into play to manage domain related states.
+      const App = () => {
+      ...
+      const [stories, dispatchStories] = React.useReducer(
+        storiesReducer,
+        []
+      );
+      const [isLoading, setIsLoading] = React.useState(false);
+      const [isError, setIsError] = React.useState(false);
+      ...
+    };
+    */
+
+  //data: [], isLoading, isError flags hooks merged into one 
+  //useReducer hook for a unified state.
+  const [stories, dispatchStories] = React.useReducer(  //(A)
     storiesReducer,
-    { data: [], isLoading: false, isError: false }
+    { data: [], isLoading: false, isError: false } 
+                                //We want an empty list data = [] 
+                                 //isloading=false
+                                 //is error=false
   );
 
+  //After merging the three useState hooks into one Reducer hook,
+  //we cannot use the state updater functions from React's 
+  //useState Hooks anymore like:
+  //     setIsLoading, setIsError
+  //everything related to asynchronous data fetching must now use 
+  //the new dispatch function "dispatchStories" see (A)
+  //for updating state transitions 
+
   React.useEffect(() => {
-    dispatchStories({ type: 'STORIES_FETCH_INIT' });
+    //dispatchStories receiving different payload
+    dispatchStories({ type: 'STORIES_FETCH_INIT' }); //initialization
+                  //dispatchStories receives STORIES_FETCH_INIT as type
 
     getAsyncStories()
       .then((result) => {
-        dispatchStories({
-          type: 'STORIES_FETCH_SUCCESS',
+        dispatchStories({ //for getAsyncStories() dispatchStories receives STORIES_FETCH_SUCCESS as type
+          type: 'STORIES_FETCH_SUCCESS',  
           payload: result.data.stories,
         });
       })
-      .catch(() =>
+      .catch(() => //for error condition, dispatchStories receives STORIES_FETCH_FAILURE as type
         dispatchStories({ type: 'STORIES_FETCH_FAILURE' })
       );
   }, []);
@@ -153,6 +255,8 @@ const App = () => {
     setSearchTerm(event.target.value);
   };
 
+  //by addressing the state as object and not as array anymore,
+  //note that it operates on the state.data no longer on the plain state.
   const searchedStories = stories.data.filter((story) =>
     story.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -172,6 +276,7 @@ const App = () => {
 
       <hr />
 
+       
       {stories.isError && <p>Something went wrong ...</p>}
 
       {stories.isLoading ? (
